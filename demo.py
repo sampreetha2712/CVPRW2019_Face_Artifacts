@@ -17,6 +17,12 @@ from py_utils.face_utils import lib
 from py_utils.vid_utils import proc_vid as pv
 import logging
 import csv
+import xlwt
+import xlrd
+from xlwt import Workbook
+from xlutils.copy import copy as xl_copy
+import pandas as pd
+
 
 print('***********')
 print('Detecting DeepFake images, prob == -1 denotes opt out')
@@ -31,7 +37,15 @@ sample_num = 10
 pwd = os.path.dirname(__file__)
 front_face_detector = dlib.get_frontal_face_detector()
 lmark_predictor = dlib.shape_predictor(
-    '/home/udaya2899/Projects/CVPRW2019_Face_Artifacts/dlib_model/shape_predictor_68_face_landmarks.dat')
+    '/home/sampreetha/CVPRW2019_Face_Artifacts/dlib_model/shape_predictor_68_face_landmarks.dat')
+
+# check if workbook exists
+if os.path.isfile('Fake_Probability_Artefacts.xls'):
+    rb = xlrd.open_workbook('Fake_Probability_Artefacts.xls', formatting_info=True)
+    wb = xl_copy(rb)
+else:
+    # workbook is created
+    wb = Workbook()
 
 tfconfig = tf.ConfigProto(allow_soft_placement=True)
 tfconfig.gpu_options.allow_growth = True
@@ -75,10 +89,19 @@ def im_test(im):
 def run(input_dir):
     logging.basicConfig(filename='run.log', filemode='w', format='[%(asctime)s - %(levelname)s] %(message)s',
                         level=logging.INFO)
+    
+    sheetname = str(input_dir).replace('/','-') #
+    print(sheetname)
+    sheet = wb.add_sheet(sheetname)
+    sheet.write(0, 0, 'FILE NAME')
+    sheet.write(0, 1, 'LABEL')
+    sheet.write(0, 2, 'FAKE PROBABILITY')
+    row = 1 #initialize row count
 
     f_list = os.listdir(input_dir)
     prob_list = []
     for f_name in f_list:
+        sheet.write(row, 0, str(f_name)) #
         # Parse video
         f_path = os.path.join(input_dir, f_name)
         #f_path = '/home/sampreetha/Projects/Deepfakes/Github References/CVPRW2019_Face_Artifacts/demo/'+f_name
@@ -114,7 +137,15 @@ def run(input_dir):
         logging.info('Prob = ' + str(prob))
         prob_list.append(prob)
         print('Prob: ' + str(prob))
-
+        sheet.write(row, 2, float(prob)) #
+        if(prob == -1): #
+            sheet.write(row, 1, 'REAL')
+        elif(prob < 0.5):
+            sheet.write(row, 1, 'REAL')
+        else:
+            sheet.write(row, 1, 'FAKE')
+        row += 1 #
+    wb.save('Fake_Probability_Artefacts.xls') #
     sess.close()
     return f_list, prob_list
 
@@ -130,6 +161,7 @@ if __name__ == '__main__':
     print(files)
     print("-----Prob: ----")
     print(prob)
+    """
     label_prob = []
     for p in prob:
         if(p == -1):
@@ -138,10 +170,11 @@ if __name__ == '__main__':
             label_prob.append("REAL")
         else:
             label_prob.append("FAKE")
-
+   
     result = list(map(list, zip(files, label_prob, prob)))
 
     with open('result.csv', 'w+') as file:
         writer = csv.writer(file)
         writer.writerow(["file name", "label", "prob"])
         writer.writerows(result)
+    """
