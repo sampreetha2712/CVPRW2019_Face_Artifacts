@@ -56,7 +56,7 @@ Face images for training can be downloaded from the public dataset. I put severa
     http://www2.ece.ohio-state.edu/~aleix/ARdatabase.html
     http://pics.psych.stir.ac.uk/2D_face_sets.htm
 
-The data download from these datset are positive samples. 
+The data download from these dataset are positive samples. 
 Since we focus on the artifacts introduced in the inconsistency of resolution between face area and surrounding area,
 the negative samples do not have to be DeepFake generated images. Thus the negative samples for our training can 
 be easily created. Please check paper for more details.

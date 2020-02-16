@@ -7,14 +7,16 @@ import tensorflow as tf
 from resolution_network import ResoNet
 from solver import Solver
 from easydict import EasyDict as edict
-import cv2, yaml, os, dlib
+import cv2
+import yaml
+import os
+import dlib
 from py_utils.vis import vis_im
 import numpy as np
 from py_utils.face_utils import lib
 from py_utils.vid_utils import proc_vid as pv
 import logging
-
-
+import csv
 
 print('***********')
 print('Detecting DeepFake images, prob == -1 denotes opt out')
@@ -28,10 +30,11 @@ sample_num = 10
 # Employ dlib to extract face area and landmark points
 pwd = os.path.dirname(__file__)
 front_face_detector = dlib.get_frontal_face_detector()
-lmark_predictor = dlib.shape_predictor(pwd + '/dlib_model/shape_predictor_68_face_landmarks.dat')
+lmark_predictor = dlib.shape_predictor(
+    '/home/udaya2899/Projects/CVPRW2019_Face_Artifacts/dlib_model/shape_predictor_68_face_landmarks.dat')
 
 tfconfig = tf.ConfigProto(allow_soft_placement=True)
-tfconfig.gpu_options.allow_growth=True
+tfconfig.gpu_options.allow_growth = True
 # init session
 sess = tf.Session(config=tfconfig)
 # Build network
@@ -43,14 +46,15 @@ solver.init()
 
 
 def im_test(im):
-    face_info = lib.align(im[:, :, (2,1,0)], front_face_detector, lmark_predictor)
+    face_info = lib.align(im[:, :, (2, 1, 0)],
+                          front_face_detector, lmark_predictor)
     # Samples
     if len(face_info) == 0:
+        print('No faces are detected')
         logging.warning('No faces are detected.')
         prob = -1  # we ignore this case
     else:
         # Check how many faces in an image
-        logging.info('{} faces are detected.'.format(len(face_info)))
         max_prob = -1
         # If one face is fake, the image is fake
         for _, point in face_info:
@@ -60,7 +64,8 @@ def im_test(im):
                 rois.append(cv2.resize(roi[0], tuple(cfg.IMG_SIZE[:2])))
             vis_im(rois, 'tmp/vis.jpg')
             prob = solver.test(rois)
-            prob = np.mean(np.sort(prob[:, 0])[np.round(sample_num / 2).astype(int):])
+            prob = np.mean(np.sort(prob[:, 0])[
+                           np.round(sample_num / 2).astype(int):])
             if prob >= max_prob:
                 max_prob = prob
         prob = max_prob
@@ -76,6 +81,8 @@ def run(input_dir):
     for f_name in f_list:
         # Parse video
         f_path = os.path.join(input_dir, f_name)
+        #f_path = '/home/sampreetha/Projects/Deepfakes/Github References/CVPRW2019_Face_Artifacts/demo/'+f_name
+        print(f_path)
         print('Testing: ' + f_path)
         logging.info('Testing: ' + f_path)
         suffix = f_path.split('.')[-1]
@@ -101,14 +108,15 @@ def run(input_dir):
             if probs is []:
                 prob = -1
             else:
-                prob = np.mean(sorted(probs, reverse=True)[:int(frame_num / 3)])
+                prob = np.mean(sorted(probs, reverse=True)
+                               [:int(frame_num / 3)])
 
         logging.info('Prob = ' + str(prob))
         prob_list.append(prob)
         print('Prob: ' + str(prob))
 
     sess.close()
-    return prob_list
+    return f_list, prob_list
 
 
 if __name__ == '__main__':
@@ -116,4 +124,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, default='demo')
     args = parser.parse_args()
-    run(args.input_dir)
+    files, prob = run(args.input_dir)
+    print("-----------------------------")
+    print("-----Files: ----")
+    print(files)
+    print("-----Prob: ----")
+    print(prob)
+    label_prob = []
+    for p in prob:
+        if(p == -1):
+            label_prob.append("REAL")
+        elif(p < 0.5):
+            label_prob.append("REAL")
+        else:
+            label_prob.append("FAKE")
+
+    result = list(map(list, zip(files, label_prob)))
+
+    with open('result.csv', 'w+') as file:
+        writer = csv.writer(file)
+        writer.writerow(["file name", "label"])
+        writer.writerows(result)
