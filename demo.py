@@ -139,9 +139,9 @@ if __name__ == '__main__':
         else:
             label_prob.append("FAKE")
 
-    result = list(map(list, zip(files, label_prob)))
+    result = list(map(list, zip(files, label_prob, prob)))
 
     with open('result.csv', 'w+') as file:
         writer = csv.writer(file)
-        writer.writerow(["file name", "label"])
+        writer.writerow(["file name", "label", "prob"])
         writer.writerows(result)
